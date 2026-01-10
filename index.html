@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coloring Game - Balloon</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <h1>Coloring Game</h1>
+        <div class="game-content">
+            <canvas id="coloringCanvas" width="800" height="600"></canvas>
+            <div class="controls">
+                <h2>Colors</h2>
+                <div class="color-palette">
+                    <div class="color-btn" data-color="#FF0000" style="background-color: #FF0000;"></div>
+                    <div class="color-btn" data-color="#FF6B00" style="background-color: #FF6B00;"></div>
+                    <div class="color-btn" data-color="#FFD700" style="background-color: #FFD700;"></div>
+                    <div class="color-btn" data-color="#00FF00" style="background-color: #00FF00;"></div>
+                    <div class="color-btn" data-color="#00BFFF" style="background-color: #00BFFF;"></div>
+                    <div class="color-btn" data-color="#0000FF" style="background-color: #0000FF;"></div>
+                    <div class="color-btn" data-color="#8B00FF" style="background-color: #8B00FF;"></div>
+                    <div class="color-btn" data-color="#FF1493" style="background-color: #FF1493;"></div>
+                    <div class="color-btn" data-color="#8B4513" style="background-color: #8B4513;"></div>
+                    <div class="color-btn" data-color="#000000" style="background-color: #000000;"></div>
+                    <div class="color-btn" data-color="#FFFFFF" style="background-color: #FFFFFF; border: 2px solid #333;"></div>
+                    <div class="color-btn" data-color="#FFC0CB" style="background-color: #FFC0CB;"></div>
+                </div>
+                <div class="tool-buttons">
+                    <button id="eraserBtn" class="tool-btn">Eraser</button>
+                    <button id="resetBtn" class="tool-btn reset-btn">Reset</button>
+                </div>
+                <div class="selected-color-display">
+                    <p>Selected Color:</p>
+                    <div id="selectedColorBox" style="background-color: #FF0000;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>

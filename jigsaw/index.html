@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jigsaw Puzzle Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🧩 Jigsaw Puzzle Game</h1>
+
+        <!-- OpenAI Token Modal -->
+        <div id="tokenModal" class="modal">
+            <div class="modal-content">
+                <h2>Welcome!</h2>
+                <p>Please enter your OpenAI API token to use the cartoon transformation feature:</p>
+                <input type="password" id="tokenInput" placeholder="sk-...">
+                <button id="saveToken">Save Token</button>
+                <p class="info">Your token will be stored locally in your browser.</p>
+            </div>
+        </div>
+
+        <!-- Main Game Container -->
+        <div id="gameContainer" style="display: none;">
+
+            <!-- Settings Section -->
+            <div class="settings-bar">
+                <button id="changeTokenBtn" class="settings-btn">🔑 Change API Token</button>
+                <div class="difficulty-selector">
+                    <label>Difficulty:</label>
+                    <select id="difficulty">
+                        <option value="2">Easy (2x2)</option>
+                        <option value="3" selected>Medium (3x3)</option>
+                        <option value="4">Hard (4x4)</option>
+                        <option value="5">Expert (5x5)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Image Upload Section -->
+            <div id="uploadSection" class="section">
+                <h2>Step 1: Choose Your Image</h2>
+                <div class="upload-controls">
+                    <input type="file" id="fileInput" accept="image/*" style="display: none;">
+                    <button id="uploadBtn" class="btn-primary">📁 Upload Image</button>
+                    <button id="cameraBtn" class="btn-primary">📷 Take Photo</button>
+                </div>
+                <video id="camera" autoplay style="display: none;"></video>
+                <button id="captureBtn" class="btn-secondary" style="display: none;">Capture Photo</button>
+                <canvas id="captureCanvas" style="display: none;"></canvas>
+            </div>
+
+            <!-- Image Preview Section -->
+            <div id="previewSection" class="section" style="display: none;">
+                <h2>Step 2: Transform to Cartoon</h2>
+                <img id="originalImage" alt="Original Image">
+                <button id="transformBtn" class="btn-primary">✨ Transform to Cartoon Style</button>
+                <div id="loadingIndicator" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Transforming your image... This may take a moment.</p>
+                </div>
+            </div>
+
+            <!-- Cartoon Preview Section -->
+            <div id="cartoonSection" class="section" style="display: none;">
+                <h2>Step 3: Your Cartoon Image</h2>
+                <img id="cartoonImage" alt="Cartoon Image">
+                <button id="startGameBtn" class="btn-primary">🎮 Start Puzzle Game</button>
+            </div>
+
+            <!-- Game Section -->
+            <div id="puzzleSection" class="section" style="display: none;">
+                <div class="game-header">
+                    <h2>Assemble the Puzzle!</h2>
+                    <div class="game-controls">
+                        <button id="showPreviewBtn" class="btn-secondary">👁️ Show Preview</button>
+                        <button id="resetBtn" class="btn-secondary">🔄 Reset</button>
+                        <button id="newGameBtn" class="btn-secondary">🆕 New Game</button>
+                    </div>
+                </div>
+
+                <!-- Preview Modal -->
+                <div id="previewModal" class="modal" style="display: none;">
+                    <div class="modal-content preview-modal">
+                        <span class="close">&times;</span>
+                        <img id="previewImage" alt="Preview">
+                    </div>
+                </div>
+
+                <div class="puzzle-container">
+                    <!-- Puzzle Grid -->
+                    <div id="puzzleGrid" class="puzzle-grid"></div>
+
+                    <!-- Pieces Pool -->
+                    <div id="piecesPool" class="pieces-pool"></div>
+                </div>
+
+                <div id="victoryMessage" class="victory" style="display: none;">
+                    <h2>🎉 Congratulations!</h2>
+                    <p>You completed the puzzle!</p>
+                    <button id="playAgainBtn" class="btn-primary">Play Again</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>

@@ -10,23 +10,11 @@
     <div class="container">
         <h1>🧩 Jigsaw Puzzle Game</h1>
 
-        <!-- OpenAI Token Modal -->
-        <div id="tokenModal" class="modal">
-            <div class="modal-content">
-                <h2>Welcome!</h2>
-                <p>Please enter your OpenAI API token to use the cartoon transformation feature:</p>
-                <input type="password" id="tokenInput" placeholder="sk-...">
-                <button id="saveToken">Save Token</button>
-                <p class="info">Your token will be stored locally in your browser.</p>
-            </div>
-        </div>
-
         <!-- Main Game Container -->
-        <div id="gameContainer" style="display: none;">
+        <div id="gameContainer">
 
             <!-- Settings Section -->
             <div class="settings-bar">
-                <button id="changeTokenBtn" class="settings-btn">🔑 Change API Token</button>
                 <div class="difficulty-selector">
                     <label>Difficulty:</label>
                     <select id="difficulty">
@@ -53,19 +41,8 @@
 
             <!-- Image Preview Section -->
             <div id="previewSection" class="section" style="display: none;">
-                <h2>Step 2: Transform to Cartoon</h2>
+                <h2>Step 2: Start Your Puzzle</h2>
                 <img id="originalImage" alt="Original Image">
-                <button id="transformBtn" class="btn-primary">✨ Transform to Cartoon Style</button>
-                <div id="loadingIndicator" class="loading" style="display: none;">
-                    <div class="spinner"></div>
-                    <p>Transforming your image... This may take a moment.</p>
-                </div>
-            </div>
-
-            <!-- Cartoon Preview Section -->
-            <div id="cartoonSection" class="section" style="display: none;">
-                <h2>Step 3: Your Cartoon Image</h2>
-                <img id="cartoonImage" alt="Cartoon Image">
                 <button id="startGameBtn" class="btn-primary">🎮 Start Puzzle Game</button>
             </div>
 

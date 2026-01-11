@@ -1,8 +1,6 @@
 // Game State
 let gameState = {
-    apiToken: null,
     originalImage: null,
-    cartoonImage: null,
     difficulty: 3,
     pieces: [],
     grid: [],
@@ -11,10 +9,6 @@ let gameState = {
 
 // DOM Elements
 const elements = {
-    tokenModal: document.getElementById('tokenModal'),
-    tokenInput: document.getElementById('tokenInput'),
-    saveTokenBtn: document.getElementById('saveToken'),
-    changeTokenBtn: document.getElementById('changeTokenBtn'),
     gameContainer: document.getElementById('gameContainer'),
 
     uploadSection: document.getElementById('uploadSection'),
@@ -27,11 +21,6 @@ const elements = {
 
     previewSection: document.getElementById('previewSection'),
     originalImage: document.getElementById('originalImage'),
-    transformBtn: document.getElementById('transformBtn'),
-    loadingIndicator: document.getElementById('loadingIndicator'),
-
-    cartoonSection: document.getElementById('cartoonSection'),
-    cartoonImage: document.getElementById('cartoonImage'),
     startGameBtn: document.getElementById('startGameBtn'),
 
     puzzleSection: document.getElementById('puzzleSection'),
@@ -53,22 +42,11 @@ const elements = {
 document.addEventListener('DOMContentLoaded', init);
 
 function init() {
-    // Check for saved API token
-    const savedToken = localStorage.getItem('openai_token');
-    if (savedToken) {
-        gameState.apiToken = savedToken;
-        elements.tokenModal.style.display = 'none';
-        elements.gameContainer.style.display = 'block';
-    }
-
     // Event Listeners
-    elements.saveTokenBtn.addEventListener('click', saveToken);
-    elements.changeTokenBtn.addEventListener('click', changeToken);
     elements.uploadBtn.addEventListener('click', () => elements.fileInput.click());
     elements.fileInput.addEventListener('change', handleFileUpload);
     elements.cameraBtn.addEventListener('click', startCamera);
     elements.captureBtn.addEventListener('click', capturePhoto);
-    elements.transformBtn.addEventListener('click', transformImage);
     elements.startGameBtn.addEventListener('click', startPuzzleGame);
     elements.showPreviewBtn.addEventListener('click', showPreview);
     elements.resetBtn.addEventListener('click', resetPuzzle);
@@ -83,25 +61,6 @@ function init() {
     });
 }
 
-// Token Management
-function saveToken() {
-    const token = elements.tokenInput.value.trim();
-    if (!token) {
-        alert('Please enter a valid API token');
-        return;
-    }
-
-    gameState.apiToken = token;
-    localStorage.setItem('openai_token', token);
-    elements.tokenModal.style.display = 'none';
-    elements.gameContainer.style.display = 'block';
-}
-
-function changeToken() {
-    elements.tokenInput.value = gameState.apiToken;
-    elements.tokenModal.style.display = 'flex';
-}
-
 // Image Upload/Capture
 async function handleFileUpload(event) {
     const file = event.target.files[0];
@@ -111,19 +70,6 @@ async function handleFileUpload(event) {
     if (!file.type.startsWith('image/')) {
         alert('Please upload a valid image file.');
         return;
-    }
-
-    // Check file size (warn if > 10MB, as it will need heavy compression)
-    const maxWarningSize = 10 * 1024 * 1024; // 10MB
-    if (file.size > maxWarningSize) {
-        const proceed = confirm(
-            `This image is quite large (${(file.size / 1024 / 1024).toFixed(2)}MB). ` +
-            `It will be automatically resized to meet OpenAI's 4MB PNG requirement. Continue?`
-        );
-        if (!proceed) {
-            event.target.value = '';
-            return;
-        }
     }
 
     const reader = new FileReader();
@@ -180,163 +126,13 @@ function showImagePreview(imageData) {
     elements.uploadSection.scrollIntoView({ behavior: 'smooth' });
 }
 
-// OpenAI Image Transformation
-async function transformImage() {
-    if (!gameState.originalImage) return;
-
-    elements.transformBtn.disabled = true;
-    elements.loadingIndicator.style.display = 'block';
-
-    try {
-        // Call OpenAI API with the original image data URL
-        const result = await callOpenAIImageEdit(gameState.originalImage);
-
-        gameState.cartoonImage = result;
-        elements.cartoonImage.src = result;
-        elements.cartoonSection.style.display = 'block';
-        elements.cartoonSection.scrollIntoView({ behavior: 'smooth' });
-
-    } catch (error) {
-        console.error('Image transformation error:', error);
-
-        // Show detailed error message to user
-        let errorMessage = 'Failed to transform image:\n\n';
-
-        if (error.message.includes('4MB') || error.message.includes('too large')) {
-            errorMessage += error.message;
-        } else if (error.message.includes('API key')) {
-            errorMessage += 'Invalid API key. Please check your OpenAI API token.';
-        } else if (error.message.includes('billing') || error.message.includes('quota')) {
-            errorMessage += 'API quota exceeded or billing issue. Please check your OpenAI account.';
-        } else if (error.message.includes('image editing')) {
-            errorMessage += 'Your API key does not have access to image editing features.\n\n' +
-                          'Please ensure your OpenAI account has access to the DALL-E image editing API.';
-        } else {
-            errorMessage += error.message;
-        }
-
-        alert(errorMessage);
-    } finally {
-        elements.transformBtn.disabled = false;
-        elements.loadingIndicator.style.display = 'none';
-    }
-}
-
-function blobToBase64(blob) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
-}
-
-async function callOpenAIImageEdit(imageDataURL) {
-    // Use a two-step process: GPT-4 Vision to describe, then DALL-E to generate cartoon
-    return await generateCartoonWithDallE(imageDataURL);
-}
-
-async function generateCartoonWithDallE(imageDataURL) {
-    try {
-        // Step 1: Use GPT-4 Vision to analyze the image and create a detailed description
-        const description = await analyzeImageWithVision(imageDataURL);
-
-        // Step 2: Use DALL-E 3 to generate a cartoon version based on the description
-        const cartoonImageUrl = await generateCartoonFromDescription(description);
-
-        return cartoonImageUrl;
-    } catch (error) {
-        // Re-throw the error with clear message
-        throw error;
-    }
-}
-
-async function analyzeImageWithVision(imageDataURL) {
-    const apiUrl = 'https://api.openai.com/v1/chat/completions';
-
-    // Ensure the image is in base64 format
-    let base64Image = imageDataURL;
-    if (base64Image.startsWith('data:')) {
-        base64Image = base64Image.split(',')[1];
-    }
-
-    const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${gameState.apiToken}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            model: 'gpt-4o',
-            messages: [
-                {
-                    role: 'user',
-                    content: [
-                        {
-                            type: 'text',
-                            text: 'Describe this image in detail, focusing on the main subject, objects, people, setting, colors, and mood. This description will be used to create a cartoon version of the image. Be specific and descriptive but concise (2-3 sentences).'
-                        },
-                        {
-                            type: 'image_url',
-                            image_url: {
-                                url: `data:image/jpeg;base64,${base64Image}`
-                            }
-                        }
-                    ]
-                }
-            ],
-            max_tokens: 500
-        })
-    });
-
-    if (!response.ok) {
-        const errorData = await response.json();
-        const errorMessage = errorData.error?.message || 'Vision API failed';
-        throw new Error(errorMessage);
-    }
-
-    const data = await response.json();
-    return data.choices[0].message.content;
-}
-
-async function generateCartoonFromDescription(description) {
-    const apiUrl = 'https://api.openai.com/v1/images/generations';
-
-    // Create a prompt that combines the description with cartoon style instructions
-    const cartoonPrompt = `Create a vibrant cartoon-style illustration of the following: ${description}. Use bold outlines, bright colors, and a fun, animated aesthetic.`;
-
-    const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${gameState.apiToken}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            model: 'dall-e-3',
-            prompt: cartoonPrompt,
-            n: 1,
-            size: '1024x1024',
-            quality: 'standard'
-        })
-    });
-
-    if (!response.ok) {
-        const errorData = await response.json();
-        const errorMessage = errorData.error?.message || 'Image generation failed';
-        throw new Error(errorMessage);
-    }
-
-    const data = await response.json();
-    return data.data[0].url;
-}
-
 // Puzzle Game Logic
 function updateDifficulty() {
     gameState.difficulty = parseInt(elements.difficultySelect.value);
 }
 
 function startPuzzleGame() {
-    if (!gameState.cartoonImage) return;
+    if (!gameState.originalImage) return;
 
     elements.puzzleSection.style.display = 'block';
     elements.victoryMessage.style.display = 'none';
@@ -389,7 +185,7 @@ function createPuzzle() {
         });
     };
 
-    img.src = gameState.cartoonImage;
+    img.src = gameState.originalImage;
 }
 
 function createPieceElement(img, col, row, width, height, id) {
@@ -535,7 +331,7 @@ function showVictory() {
 
 // Game Controls
 function showPreview() {
-    elements.previewImage.src = gameState.cartoonImage;
+    elements.previewImage.src = gameState.originalImage;
     elements.previewModal.style.display = 'flex';
 }
 
@@ -567,15 +363,12 @@ function resetPuzzle() {
 function newGame() {
     // Reset all sections
     elements.previewSection.style.display = 'none';
-    elements.cartoonSection.style.display = 'none';
     elements.puzzleSection.style.display = 'none';
     elements.victoryMessage.style.display = 'none';
 
     // Clear images
     gameState.originalImage = null;
-    gameState.cartoonImage = null;
     elements.originalImage.src = '';
-    elements.cartoonImage.src = '';
     elements.fileInput.value = '';
 
     // Stop camera if running

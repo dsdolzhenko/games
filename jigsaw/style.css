@@ -146,12 +146,12 @@ h2 {
     min-height: 300px;
 }
 
-.setup-container .section {
+.setup-container .step-content {
     display: none;
     animation: fadeIn 0.3s ease-in;
 }
 
-.setup-container .section.active {
+.setup-container .step-content.active {
     display: block;
 }
 
@@ -250,7 +250,7 @@ h2 {
 }
 
 /* Loading Indicator */
-.section.loading {
+.step-content.loading {
     text-align: center;
     padding: 30px;
 }

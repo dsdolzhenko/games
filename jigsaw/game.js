@@ -12,6 +12,7 @@ let gameState = {
 // DOM Elements
 const elements = {
     gameContainer: document.getElementById('gameContainer'),
+    setupContainer: document.getElementById('setupContainer'),
 
     tokenModal: document.getElementById('tokenModal'),
     apiTokenInput: document.getElementById('apiTokenInput'),
@@ -50,6 +51,19 @@ const elements = {
 
     difficultySelect: document.getElementById('difficulty')
 };
+
+// Helper function to switch between setup steps
+function showStep(stepElement) {
+    // Remove active class from all steps
+    const allSteps = elements.setupContainer.querySelectorAll('.section');
+    allSteps.forEach(step => step.classList.remove('active'));
+
+    // Add active class to the target step
+    stepElement.classList.add('active');
+
+    // Scroll to setup container
+    elements.setupContainer.scrollIntoView({ behavior: 'smooth' });
+}
 
 // Initialize
 document.addEventListener('DOMContentLoaded', init);
@@ -170,8 +184,7 @@ function capturePhoto() {
 
 function showImagePreview(imageData) {
     elements.originalImage.src = imageData;
-    elements.previewSection.style.display = 'block';
-    elements.uploadSection.scrollIntoView({ behavior: 'smooth' });
+    showStep(elements.previewSection);
 }
 
 // Image Transformation with OpenAI
@@ -182,9 +195,7 @@ async function transformImage() {
         return;
     }
 
-    elements.previewSection.style.display = 'none';
-    elements.loadingIndicator.style.display = 'block';
-    elements.loadingIndicator.scrollIntoView({ behavior: 'smooth' });
+    showStep(elements.loadingIndicator);
 
     try {
         // Step 1: Analyze image with GPT-4 Vision
@@ -200,14 +211,11 @@ async function transformImage() {
 
         // Show the cartoon image
         elements.cartoonImage.src = cartoonBase64;
-        elements.loadingIndicator.style.display = 'none';
-        elements.cartoonSection.style.display = 'block';
-        elements.cartoonSection.scrollIntoView({ behavior: 'smooth' });
+        showStep(elements.cartoonSection);
 
     } catch (error) {
         console.error('Transformation error:', error);
-        elements.loadingIndicator.style.display = 'none';
-        elements.previewSection.style.display = 'block';
+        showStep(elements.previewSection);
 
         let errorMessage = 'Failed to transform image: ' + error.message;
 
@@ -300,6 +308,8 @@ function startPuzzleGame() {
     const puzzleImage = gameState.cartoonImage || gameState.originalImage;
     if (!puzzleImage) return;
 
+    // Hide setup container and show puzzle section
+    elements.setupContainer.style.display = 'none';
     elements.puzzleSection.style.display = 'block';
     elements.victoryMessage.style.display = 'none';
     elements.puzzleSection.scrollIntoView({ behavior: 'smooth' });
@@ -596,12 +606,13 @@ function resetPuzzle() {
 }
 
 function newGame() {
-    // Reset all sections
-    elements.previewSection.style.display = 'none';
-    elements.cartoonSection.style.display = 'none';
-    elements.loadingIndicator.style.display = 'none';
+    // Show setup container and hide puzzle section
+    elements.setupContainer.style.display = 'block';
     elements.puzzleSection.style.display = 'none';
     elements.victoryMessage.style.display = 'none';
+
+    // Reset to upload step
+    showStep(elements.uploadSection);
 
     // Clear images
     gameState.originalImage = null;
@@ -618,7 +629,4 @@ function newGame() {
         elements.cameraBtn.style.display = 'block';
         elements.uploadBtn.style.display = 'block';
     }
-
-    // Scroll to top
-    elements.uploadSection.scrollIntoView({ behavior: 'smooth' });
 }

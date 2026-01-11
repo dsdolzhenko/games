@@ -31,6 +31,7 @@ const elements = {
     brushSize: document.getElementById('brushSize'),
     brushSizeLabel: document.getElementById('brushSizeLabel'),
     brushTool: document.getElementById('brushTool'),
+    fillTool: document.getElementById('fillTool'),
     eraserTool: document.getElementById('eraserTool'),
 
     clearBtn: document.getElementById('clearBtn'),
@@ -104,6 +105,10 @@ function init() {
 
     elements.brushTool.addEventListener('click', () => {
         setTool('brush');
+    });
+
+    elements.fillTool.addEventListener('click', () => {
+        setTool('fill');
     });
 
     elements.eraserTool.addEventListener('click', () => {
@@ -264,9 +269,100 @@ function getCanvasCoordinates(e) {
     };
 }
 
+// Flood Fill Algorithm
+function floodFill(startX, startY, fillColor) {
+    const imageData = ctx.getImageData(0, 0, elements.paintingCanvas.width, elements.paintingCanvas.height);
+    const pixels = imageData.data;
+    const width = imageData.width;
+    const height = imageData.height;
+
+    // Convert hex color to RGB
+    const fillRGB = hexToRgb(fillColor);
+    if (!fillRGB) return;
+
+    // Get the color at the starting pixel
+    const startPos = (startY * width + startX) * 4;
+    const startR = pixels[startPos];
+    const startG = pixels[startPos + 1];
+    const startB = pixels[startPos + 2];
+    const startA = pixels[startPos + 3];
+
+    // If the color is already the fill color, nothing to do
+    if (startR === fillRGB.r && startG === fillRGB.g && startB === fillRGB.b) {
+        return;
+    }
+
+    // Stack-based flood fill
+    const stack = [[startX, startY]];
+    const visited = new Set();
+
+    while (stack.length > 0) {
+        const [x, y] = stack.pop();
+
+        // Skip if out of bounds
+        if (x < 0 || x >= width || y < 0 || y >= height) continue;
+
+        // Create unique key for this pixel
+        const key = `${x},${y}`;
+        if (visited.has(key)) continue;
+        visited.add(key);
+
+        // Get pixel position
+        const pos = (y * width + x) * 4;
+
+        // Check if pixel matches the start color
+        const r = pixels[pos];
+        const g = pixels[pos + 1];
+        const b = pixels[pos + 2];
+        const a = pixels[pos + 3];
+
+        // Allow small color difference for better filling (tolerance)
+        const tolerance = 10;
+        if (
+            Math.abs(r - startR) <= tolerance &&
+            Math.abs(g - startG) <= tolerance &&
+            Math.abs(b - startB) <= tolerance &&
+            Math.abs(a - startA) <= tolerance
+        ) {
+            // Fill this pixel
+            pixels[pos] = fillRGB.r;
+            pixels[pos + 1] = fillRGB.g;
+            pixels[pos + 2] = fillRGB.b;
+            pixels[pos + 3] = 255; // Full opacity
+
+            // Add neighboring pixels to stack
+            stack.push([x + 1, y]);
+            stack.push([x - 1, y]);
+            stack.push([x, y + 1]);
+            stack.push([x, y - 1]);
+        }
+    }
+
+    // Put the modified image data back to the canvas
+    ctx.putImageData(imageData, 0, 0);
+}
+
+// Helper function to convert hex color to RGB
+function hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : null;
+}
+
 function startDrawing(e) {
-    gameState.isDrawing = true;
     const coords = getCanvasCoordinates(e);
+
+    // Handle fill tool separately
+    if (gameState.currentTool === 'fill') {
+        floodFill(Math.floor(coords.x), Math.floor(coords.y), gameState.currentColor);
+        return;
+    }
+
+    // For brush and eraser, start drawing
+    gameState.isDrawing = true;
     gameState.lastX = coords.x;
     gameState.lastY = coords.y;
 }
@@ -336,22 +432,29 @@ function setColor(color) {
         }
     });
 
-    // Switch to brush if using eraser
+    // Switch to brush if using eraser (can't erase with color)
     if (gameState.currentTool === 'eraser') {
         setTool('brush');
     }
+    // Note: fill tool keeps working with the new color
 }
 
 function setTool(tool) {
     gameState.currentTool = tool;
 
+    // Remove active class from all tools
+    elements.brushTool.classList.remove('active');
+    elements.fillTool.classList.remove('active');
+    elements.eraserTool.classList.remove('active');
+
     if (tool === 'brush') {
         elements.brushTool.classList.add('active');
-        elements.eraserTool.classList.remove('active');
         elements.paintingCanvas.style.cursor = 'crosshair';
+    } else if (tool === 'fill') {
+        elements.fillTool.classList.add('active');
+        elements.paintingCanvas.style.cursor = 'pointer';
     } else if (tool === 'eraser') {
         elements.eraserTool.classList.add('active');
-        elements.brushTool.classList.remove('active');
         elements.paintingCanvas.style.cursor = 'cell';
     }
 }

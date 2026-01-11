@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paint & Trace Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Paint & Trace Game</h1>
+
+        <!-- Main Game Container -->
+        <div id="gameContainer">
+
+            <!-- OpenAI Token Modal -->
+            <div id="tokenModal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <h2>🔑 OpenAI API Token</h2>
+                    <p>Enter your OpenAI API token to generate trace-the-lines pictures:</p>
+                    <input type="password" id="apiTokenInput" placeholder="sk-...">
+                    <button id="saveTokenBtn">Save Token</button>
+                    <p class="info">Your token is stored locally and never sent anywhere except OpenAI's API.</p>
+                </div>
+            </div>
+
+            <!-- Settings Section -->
+            <div class="settings-bar">
+                <button id="changeTokenBtn" class="settings-btn" style="display: none;">🔑 Change API Token</button>
+                <button id="newGameBtn" class="settings-btn" style="display: none;">🆕 New Game</button>
+            </div>
+
+            <!-- Prompt Section -->
+            <div id="promptSection" class="section">
+                <h2>What would you like to paint?</h2>
+                <p>Describe a picture you want to trace and color:</p>
+                <textarea id="promptInput" placeholder="Example: A cute cat sitting on a windowsill with flowers"></textarea>
+                <button id="generateBtn" class="btn-primary">🎨 Generate Picture</button>
+            </div>
+
+            <!-- Loading Indicator -->
+            <div id="loadingIndicator" class="section" style="display: none;">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <h3>Generating your picture...</h3>
+                    <p>This may take 20-30 seconds</p>
+                </div>
+            </div>
+
+            <!-- Painting Section -->
+            <div id="paintingSection" class="section" style="display: none;">
+                <h2>Trace and color your picture!</h2>
+
+                <div class="painting-container">
+                    <!-- Canvas -->
+                    <div class="canvas-wrapper">
+                        <canvas id="paintingCanvas"></canvas>
+                    </div>
+
+                    <!-- Controls -->
+                    <div class="controls-panel">
+                        <h3>Tools</h3>
+
+                        <!-- Color Picker -->
+                        <div class="control-group">
+                            <label>Color:</label>
+                            <div class="color-picker-container">
+                                <input type="color" id="colorPicker" value="#000000">
+                                <div class="preset-colors">
+                                    <button class="color-preset" data-color="#000000" style="background: #000000;" title="Black"></button>
+                                    <button class="color-preset" data-color="#FF0000" style="background: #FF0000;" title="Red"></button>
+                                    <button class="color-preset" data-color="#00FF00" style="background: #00FF00;" title="Green"></button>
+                                    <button class="color-preset" data-color="#0000FF" style="background: #0000FF;" title="Blue"></button>
+                                    <button class="color-preset" data-color="#FFFF00" style="background: #FFFF00;" title="Yellow"></button>
+                                    <button class="color-preset" data-color="#FF00FF" style="background: #FF00FF;" title="Magenta"></button>
+                                    <button class="color-preset" data-color="#00FFFF" style="background: #00FFFF;" title="Cyan"></button>
+                                    <button class="color-preset" data-color="#FFA500" style="background: #FFA500;" title="Orange"></button>
+                                    <button class="color-preset" data-color="#800080" style="background: #800080;" title="Purple"></button>
+                                    <button class="color-preset" data-color="#FFC0CB" style="background: #FFC0CB;" title="Pink"></button>
+                                    <button class="color-preset" data-color="#8B4513" style="background: #8B4513;" title="Brown"></button>
+                                    <button class="color-preset" data-color="#FFFFFF" style="background: #FFFFFF; border: 1px solid #ccc;" title="White"></button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Brush Size -->
+                        <div class="control-group">
+                            <label>Brush Size: <span id="brushSizeLabel">5</span>px</label>
+                            <input type="range" id="brushSize" min="1" max="20" value="5">
+                        </div>
+
+                        <!-- Tool Selection -->
+                        <div class="control-group">
+                            <label>Tool:</label>
+                            <div class="tool-buttons">
+                                <button id="brushTool" class="tool-btn active">✏️ Brush</button>
+                                <button id="eraserTool" class="tool-btn">🧹 Eraser</button>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="control-group">
+                            <button id="clearBtn" class="btn-secondary">🗑️ Clear All</button>
+                            <button id="showOriginalBtn" class="btn-secondary">👁️ Show Original</button>
+                            <button id="downloadBtn" class="btn-primary">💾 Download</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Original Image Modal -->
+            <div id="originalModal" class="modal" style="display: none;">
+                <div class="modal-content preview-modal">
+                    <span class="close">&times;</span>
+                    <img id="originalImage" alt="Original Picture">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>

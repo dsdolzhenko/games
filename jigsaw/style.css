@@ -304,8 +304,9 @@ h2 {
     border-radius: 5px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     transition: transform 0.2s, box-shadow 0.2s;
-    background-size: cover;
-    background-position: center;
+    background-size: 100% 100%;
+    background-position: 0 0;
+    background-repeat: no-repeat;
 }
 
 .puzzle-piece:hover {

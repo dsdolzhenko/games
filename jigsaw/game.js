@@ -103,9 +103,28 @@ function changeToken() {
 }
 
 // Image Upload/Capture
-function handleFileUpload(event) {
+async function handleFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+        alert('Please upload a valid image file.');
+        return;
+    }
+
+    // Check file size (warn if > 10MB, as it will need heavy compression)
+    const maxWarningSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxWarningSize) {
+        const proceed = confirm(
+            `This image is quite large (${(file.size / 1024 / 1024).toFixed(2)}MB). ` +
+            `It will be automatically resized to meet OpenAI's 4MB PNG requirement. Continue?`
+        );
+        if (!proceed) {
+            event.target.value = '';
+            return;
+        }
+    }
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -169,16 +188,8 @@ async function transformImage() {
     elements.loadingIndicator.style.display = 'block';
 
     try {
-        // Convert data URL to blob
-        const response = await fetch(gameState.originalImage);
-        const blob = await response.blob();
-
-        // Convert blob to base64 without data URL prefix
-        const base64 = await blobToBase64(blob);
-        const base64Data = base64.split(',')[1];
-
-        // Call OpenAI API
-        const result = await callOpenAIImageEdit(base64Data);
+        // Call OpenAI API with the original image data URL
+        const result = await callOpenAIImageEdit(gameState.originalImage);
 
         gameState.cartoonImage = result;
         elements.cartoonImage.src = result;
@@ -186,8 +197,25 @@ async function transformImage() {
         elements.cartoonSection.scrollIntoView({ behavior: 'smooth' });
 
     } catch (error) {
-        alert('Failed to transform image: ' + error.message);
-        console.error(error);
+        console.error('Image transformation error:', error);
+
+        // Show detailed error message to user
+        let errorMessage = 'Failed to transform image:\n\n';
+
+        if (error.message.includes('4MB') || error.message.includes('too large')) {
+            errorMessage += error.message;
+        } else if (error.message.includes('API key')) {
+            errorMessage += 'Invalid API key. Please check your OpenAI API token.';
+        } else if (error.message.includes('billing') || error.message.includes('quota')) {
+            errorMessage += 'API quota exceeded or billing issue. Please check your OpenAI account.';
+        } else if (error.message.includes('image editing')) {
+            errorMessage += 'Your API key does not have access to image editing features.\n\n' +
+                          'Please ensure your OpenAI account has access to the DALL-E image editing API.';
+        } else {
+            errorMessage += error.message;
+        }
+
+        alert(errorMessage);
     } finally {
         elements.transformBtn.disabled = false;
         elements.loadingIndicator.style.display = 'none';
@@ -203,86 +231,82 @@ function blobToBase64(blob) {
     });
 }
 
-async function callOpenAIImageEdit(base64Image) {
-    const apiUrl = 'https://api.openai.com/v1/chat/completions';
-
-    const requestBody = {
-        model: 'gpt-4o',
-        messages: [
-            {
-                role: 'user',
-                content: [
-                    {
-                        type: 'text',
-                        text: 'Convert this image into a cartoon/animated style. Make it look like a hand-drawn cartoon with bold outlines and vibrant colors. Keep the same composition and content, just transform the style to look like an animated cartoon.'
-                    },
-                    {
-                        type: 'image_url',
-                        image_url: {
-                            url: `data:image/jpeg;base64,${base64Image}`
-                        }
-                    }
-                ]
-            },
-            {
-                role: 'user',
-                content: 'Please generate an image based on my request.'
-            }
-        ],
-        max_tokens: 500
-    };
-
-    try {
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${gameState.apiToken}`
-            },
-            body: JSON.stringify(requestBody)
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || 'API request failed');
-        }
-
-        const data = await response.json();
-
-        // Since GPT-4o with vision doesn't generate images directly,
-        // we need to use DALL-E 3 for image generation
-        const cartoonPrompt = "A cartoon/animated style version of: " +
-            (data.choices[0]?.message?.content || "the uploaded image");
-
-        return await generateCartoonWithDallE(cartoonPrompt, base64Image);
-
-    } catch (error) {
-        throw new Error(`OpenAI API error: ${error.message}`);
-    }
+async function callOpenAIImageEdit(imageDataURL) {
+    // Directly use DALL-E for image editing
+    // The chat completion approach doesn't generate images
+    return await generateCartoonWithDallE(imageDataURL);
 }
 
-async function generateCartoonWithDallE(prompt, originalBase64) {
-    // For DALL-E 3, we'll create a prompt that describes what we want
-    // Since DALL-E can't edit images, we'll use the original as reference
+async function convertAndValidateImage(base64Image) {
+    // Load the image
+    const img = new Image();
+    await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        // Handle both data URLs and base64 strings
+        if (base64Image.startsWith('data:')) {
+            img.src = base64Image;
+        } else {
+            img.src = `data:image/jpeg;base64,${base64Image}`;
+        }
+    });
 
+    // Create canvas to convert to PNG and ensure proper format
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+
+    // Convert to PNG blob with quality control
+    let quality = 0.95;
+    let pngBlob;
+    let attempts = 0;
+    const maxSize = 4 * 1024 * 1024; // 4MB in bytes
+
+    do {
+        pngBlob = await new Promise(resolve =>
+            canvas.toBlob(resolve, 'image/png', quality)
+        );
+
+        if (pngBlob.size < maxSize) {
+            break;
+        }
+
+        // If image is too large, reduce dimensions
+        attempts++;
+        if (attempts > 3) {
+            // Resize image if compression isn't enough
+            const scale = Math.sqrt(maxSize / pngBlob.size) * 0.9;
+            canvas.width = Math.floor(img.width * scale);
+            canvas.height = Math.floor(img.height * scale);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            quality = 0.95;
+        } else {
+            quality -= 0.1;
+        }
+    } while (pngBlob.size >= maxSize && attempts < 10);
+
+    if (pngBlob.size >= maxSize) {
+        throw new Error(`Image is too large (${(pngBlob.size / 1024 / 1024).toFixed(2)}MB). Maximum size is 4MB. Please use a smaller image.`);
+    }
+
+    return { blob: pngBlob, width: canvas.width, height: canvas.height };
+}
+
+async function generateCartoonWithDallE(imageDataURL) {
     const apiUrl = 'https://api.openai.com/v1/images/edits';
 
     try {
-        // Convert base64 to file
-        const imageBlob = await (await fetch(`data:image/jpeg;base64,${originalBase64}`)).blob();
+        // Convert and validate image to PNG format under 4MB
+        const { blob: imageBlob, width, height } = await convertAndValidateImage(imageDataURL);
         const imageFile = new File([imageBlob], 'image.png', { type: 'image/png' });
 
         // Create a transparent mask (same size as image)
         const canvas = document.createElement('canvas');
-        const img = new Image();
-
-        await new Promise((resolve) => {
-            img.onload = resolve;
-            img.src = `data:image/jpeg;base64,${originalBase64}`;
-        });
-
-        canvas.width = img.width;
-        canvas.height = img.height;
+        canvas.width = width;
+        canvas.height = height;
         const ctx = canvas.getContext('2d');
 
         // Create a semi-transparent mask
@@ -309,18 +333,16 @@ async function generateCartoonWithDallE(prompt, originalBase64) {
 
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.error?.message || 'Image edit failed');
+            const errorMessage = errorData.error?.message || 'Image edit failed';
+            throw new Error(errorMessage);
         }
 
         const data = await response.json();
         return data.data[0].url;
 
     } catch (error) {
-        // Fallback: If DALL-E edit fails, just use the original image
-        // In a production app, you might want to use a different service
-        console.error('DALL-E edit failed:', error);
-        alert('Note: Using original image as cartoon transformation. For best results, ensure your API key has access to image editing features.');
-        return `data:image/jpeg;base64,${originalBase64}`;
+        // Re-throw the error with clear message
+        throw error;
     }
 }
 

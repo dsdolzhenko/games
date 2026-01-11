@@ -143,12 +143,24 @@ function startPuzzleGame() {
 
 function createPuzzle() {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
 
     img.onload = () => {
+        // Ensure image has valid dimensions
+        if (!img.width || !img.height) {
+            console.error('Image loaded but has invalid dimensions:', img.width, img.height);
+            alert('Error: Image has invalid dimensions. Please try a different image.');
+            return;
+        }
+
         const size = gameState.difficulty;
         const pieceWidth = img.width / size;
         const pieceHeight = img.height / size;
+
+        console.log('Creating puzzle:', {
+            imageSize: `${img.width}x${img.height}`,
+            gridSize: `${size}x${size}`,
+            pieceSize: `${pieceWidth}x${pieceHeight}`
+        });
 
         // Clear previous puzzle
         elements.puzzleGrid.innerHTML = '';
@@ -176,6 +188,8 @@ function createPuzzle() {
             }
         }
 
+        console.log('Created pieces:', pieces.length);
+
         // Shuffle pieces
         gameState.pieces = shuffleArray(pieces);
 
@@ -183,6 +197,13 @@ function createPuzzle() {
         gameState.pieces.forEach(piece => {
             elements.piecesPool.appendChild(piece.element);
         });
+
+        console.log('Puzzle created successfully');
+    };
+
+    img.onerror = (error) => {
+        console.error('Failed to load image for puzzle:', error);
+        alert('Error: Failed to load image. Please try uploading a different image.');
     };
 
     img.src = gameState.originalImage;

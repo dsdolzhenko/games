@@ -136,8 +136,47 @@ h2 {
     cursor: pointer;
 }
 
+/* Setup Container - Single step visible at a time */
+.setup-container {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    margin-bottom: 20px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+    min-height: 300px;
+}
+
+.setup-container .section {
+    display: none;
+    animation: fadeIn 0.3s ease-in;
+}
+
+.setup-container .section.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /* Section Styles */
 .section {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    margin-bottom: 20px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Sections outside setup-container */
+#puzzleSection {
     background: white;
     padding: 30px;
     border-radius: 15px;
@@ -211,7 +250,7 @@ h2 {
 }
 
 /* Loading Indicator */
-.loading {
+.section.loading {
     text-align: center;
     padding: 30px;
 }

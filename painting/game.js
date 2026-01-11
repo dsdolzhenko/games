@@ -287,6 +287,13 @@ function floodFill(startX, startY, fillColor) {
     const startB = pixels[startPos + 2];
     const startA = pixels[startPos + 3];
 
+    // Prevent filling black lines (protect the original outline)
+    // Check if the starting pixel is very dark (close to black)
+    const blackThreshold = 40; // RGB values below this are considered black lines
+    if (startR < blackThreshold && startG < blackThreshold && startB < blackThreshold) {
+        return; // Ignore clicks on black lines
+    }
+
     // If the color is already the fill color, nothing to do
     if (startR === fillRGB.r && startG === fillRGB.g && startB === fillRGB.b) {
         return;

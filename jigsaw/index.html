@@ -41,7 +41,7 @@
             <!-- Setup Container - Only one step visible at a time -->
             <div id="setupContainer" class="setup-container">
                 <!-- Image Upload Section -->
-                <div id="uploadSection" class="section active">
+                <div id="uploadSection" class="step-content active">
                     <h2>Step 1: Choose Your Image</h2>
                     <div class="upload-controls">
                         <input type="file" id="fileInput" accept="image/*" style="display: none;">
@@ -54,21 +54,21 @@
                 </div>
 
                 <!-- Image Preview Section -->
-                <div id="previewSection" class="section">
+                <div id="previewSection" class="step-content">
                     <h2>Step 2: Transform Your Image</h2>
                     <img id="originalImage" alt="Original Image">
                     <button id="transformBtn" class="btn-primary">🎨 Transform to Cartoon Style</button>
                 </div>
 
                 <!-- Loading Indicator -->
-                <div id="loadingIndicator" class="section loading">
+                <div id="loadingIndicator" class="step-content loading">
                     <div class="spinner"></div>
                     <h3>Transforming your image...</h3>
                     <p>This may take 20-30 seconds</p>
                 </div>
 
                 <!-- Cartoon Preview Section -->
-                <div id="cartoonSection" class="section">
+                <div id="cartoonSection" class="step-content">
                     <h2>Step 3: Start Your Puzzle</h2>
                     <img id="cartoonImage" alt="Cartoon Image">
                     <button id="startGameBtn" class="btn-primary">🎮 Start Puzzle Game</button>

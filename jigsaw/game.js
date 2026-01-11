@@ -55,7 +55,7 @@ const elements = {
 // Helper function to switch between setup steps
 function showStep(stepElement) {
     // Remove active class from all steps
-    const allSteps = elements.setupContainer.querySelectorAll('.section');
+    const allSteps = elements.setupContainer.querySelectorAll('.step-content');
     allSteps.forEach(step => step.classList.remove('active'));
 
     // Add active class to the target step

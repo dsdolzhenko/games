@@ -7,7 +7,9 @@ let gameState = {
     brushSize: 5,
     isDrawing: false,
     lastX: 0,
-    lastY: 0
+    lastY: 0,
+    history: [],
+    maxHistorySize: 20
 };
 
 // DOM Elements
@@ -34,6 +36,7 @@ const elements = {
     fillTool: document.getElementById('fillTool'),
     eraserTool: document.getElementById('eraserTool'),
 
+    undoBtn: document.getElementById('undoBtn'),
     clearBtn: document.getElementById('clearBtn'),
     showOriginalBtn: document.getElementById('showOriginalBtn'),
     downloadBtn: document.getElementById('downloadBtn'),
@@ -116,6 +119,7 @@ function init() {
     });
 
     // Event Listeners - Actions
+    elements.undoBtn.addEventListener('click', undo);
     elements.clearBtn.addEventListener('click', clearCanvas);
     elements.showOriginalBtn.addEventListener('click', showOriginal);
     elements.downloadBtn.addEventListener('click', downloadImage);
@@ -125,6 +129,15 @@ function init() {
     elements.originalModal.querySelector('.close').addEventListener('click', closeOriginal);
     elements.originalModal.addEventListener('click', (e) => {
         if (e.target === elements.originalModal) closeOriginal();
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+        // Undo: Ctrl+Z (Windows/Linux) or Cmd+Z (Mac)
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+            e.preventDefault();
+            undo();
+        }
     });
 }
 
@@ -198,6 +211,9 @@ async function generateImage() {
             // Draw the generated image as background
             ctx.drawImage(img, 0, 0, width, height);
 
+            // Clear history and save initial state
+            clearHistory();
+
             // Show painting section
             elements.loadingIndicator.style.display = 'none';
             elements.paintingSection.style.display = 'block';
@@ -267,6 +283,46 @@ function getCanvasCoordinates(e) {
         x: (e.clientX - rect.left) * scaleX,
         y: (e.clientY - rect.top) * scaleY
     };
+}
+
+// History Management
+function saveState() {
+    // Save current canvas state as ImageData
+    const imageData = ctx.getImageData(0, 0, elements.paintingCanvas.width, elements.paintingCanvas.height);
+
+    // Add to history
+    gameState.history.push(imageData);
+
+    // Limit history size
+    if (gameState.history.length > gameState.maxHistorySize) {
+        gameState.history.shift(); // Remove oldest state
+    }
+
+    // Update undo button state
+    updateUndoButton();
+}
+
+function undo() {
+    if (gameState.history.length === 0) return;
+
+    // Get the previous state
+    const previousState = gameState.history.pop();
+
+    // Restore it to the canvas
+    ctx.putImageData(previousState, 0, 0);
+
+    // Update undo button state
+    updateUndoButton();
+}
+
+function updateUndoButton() {
+    // Enable/disable undo button based on history
+    elements.undoBtn.disabled = gameState.history.length === 0;
+}
+
+function clearHistory() {
+    gameState.history = [];
+    updateUndoButton();
 }
 
 // Flood Fill Algorithm
@@ -361,6 +417,9 @@ function hexToRgb(hex) {
 
 function startDrawing(e) {
     const coords = getCanvasCoordinates(e);
+
+    // Save state before any drawing operation
+    saveState();
 
     // Handle fill tool separately
     if (gameState.currentTool === 'fill') {
@@ -470,6 +529,9 @@ function setTool(tool) {
 function clearCanvas() {
     if (!confirm('Are you sure you want to clear all your painting?')) return;
 
+    // Save state before clearing
+    saveState();
+
     // Reload the original generated image
     if (gameState.generatedImage) {
         const img = new Image();
@@ -509,6 +571,9 @@ function newGame() {
     // Reset state
     gameState.generatedImage = null;
     elements.promptInput.value = '';
+
+    // Clear history
+    clearHistory();
 
     // Clear canvas
     if (ctx) {

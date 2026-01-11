@@ -191,12 +191,11 @@ async function transformImage() {
         const description = await analyzeImageWithVision(gameState.originalImage);
         console.log('Image analysis:', description);
 
-        // Step 2: Generate cartoon with DALL-E 3
-        const cartoonUrl = await generateCartoonFromDescription(description);
-        console.log('Cartoon generated:', cartoonUrl);
+        // Step 2: Generate cartoon with DALL-E 3 (returns base64 data URL)
+        const cartoonBase64 = await generateCartoonFromDescription(description);
+        console.log('Cartoon generated (base64)');
 
-        // Convert the URL to base64 for local storage
-        const cartoonBase64 = await urlToBase64(cartoonUrl);
+        // Store the base64 data
         gameState.cartoonImage = cartoonBase64;
 
         // Show the cartoon image
@@ -276,7 +275,8 @@ async function generateCartoonFromDescription(description) {
             prompt: cartoonPrompt,
             n: 1,
             size: '1024x1024',
-            quality: 'standard'
+            quality: 'standard',
+            response_format: 'b64_json'
         })
     });
 
@@ -286,18 +286,8 @@ async function generateCartoonFromDescription(description) {
     }
 
     const data = await response.json();
-    return data.data[0].url;
-}
-
-async function urlToBase64(url) {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
+    // Return base64 data as a data URL
+    return `data:image/png;base64,${data.data[0].b64_json}`;
 }
 
 // Puzzle Game Logic

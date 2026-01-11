@@ -246,7 +246,7 @@ async function generateImage() {
 
 async function generateTraceImage(prompt) {
     // Create a prompt for a trace-the-lines / coloring book style image
-    const tracePrompt = `Create a simple black and white line drawing, coloring book style image of: ${prompt}. The image should have clear, bold black outlines with white background, suitable for tracing and coloring. Simple, clean lines like a coloring book page.`;
+    const tracePrompt = `Create a simple black and white line drawing, coloring book style image of: ONE ${prompt}. The subject should be centered in the image. The image should have clear, bold black outlines with white background, suitable for tracing and coloring. Simple, clean lines like a coloring book page. Important: show only a single subject, centered in the frame.`;
 
     const response = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',

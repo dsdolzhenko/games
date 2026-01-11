@@ -232,118 +232,102 @@ function blobToBase64(blob) {
 }
 
 async function callOpenAIImageEdit(imageDataURL) {
-    // Directly use DALL-E for image editing
-    // The chat completion approach doesn't generate images
+    // Use a two-step process: GPT-4 Vision to describe, then DALL-E to generate cartoon
     return await generateCartoonWithDallE(imageDataURL);
 }
 
-async function convertAndValidateImage(base64Image) {
-    // Load the image
-    const img = new Image();
-    await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        // Handle both data URLs and base64 strings
-        if (base64Image.startsWith('data:')) {
-            img.src = base64Image;
-        } else {
-            img.src = `data:image/jpeg;base64,${base64Image}`;
-        }
-    });
-
-    // Create canvas to convert to PNG and ensure proper format
-    const canvas = document.createElement('canvas');
-    canvas.width = img.width;
-    canvas.height = img.height;
-
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0);
-
-    // Convert to PNG blob with quality control
-    let quality = 0.95;
-    let pngBlob;
-    let attempts = 0;
-    const maxSize = 4 * 1024 * 1024; // 4MB in bytes
-
-    do {
-        pngBlob = await new Promise(resolve =>
-            canvas.toBlob(resolve, 'image/png', quality)
-        );
-
-        if (pngBlob.size < maxSize) {
-            break;
-        }
-
-        // If image is too large, reduce dimensions
-        attempts++;
-        if (attempts > 3) {
-            // Resize image if compression isn't enough
-            const scale = Math.sqrt(maxSize / pngBlob.size) * 0.9;
-            canvas.width = Math.floor(img.width * scale);
-            canvas.height = Math.floor(img.height * scale);
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            quality = 0.95;
-        } else {
-            quality -= 0.1;
-        }
-    } while (pngBlob.size >= maxSize && attempts < 10);
-
-    if (pngBlob.size >= maxSize) {
-        throw new Error(`Image is too large (${(pngBlob.size / 1024 / 1024).toFixed(2)}MB). Maximum size is 4MB. Please use a smaller image.`);
-    }
-
-    return { blob: pngBlob, width: canvas.width, height: canvas.height };
-}
-
 async function generateCartoonWithDallE(imageDataURL) {
-    const apiUrl = 'https://api.openai.com/v1/images/edits';
-
     try {
-        // Convert and validate image to PNG format under 4MB
-        const { blob: imageBlob, width, height } = await convertAndValidateImage(imageDataURL);
-        const imageFile = new File([imageBlob], 'image.png', { type: 'image/png' });
+        // Step 1: Use GPT-4 Vision to analyze the image and create a detailed description
+        const description = await analyzeImageWithVision(imageDataURL);
 
-        // Create a transparent mask (same size as image)
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
+        // Step 2: Use DALL-E 3 to generate a cartoon version based on the description
+        const cartoonImageUrl = await generateCartoonFromDescription(description);
 
-        // Create a semi-transparent mask
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        const maskBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-        const maskFile = new File([maskBlob], 'mask.png', { type: 'image/png' });
-
-        const formData = new FormData();
-        formData.append('image', imageFile);
-        formData.append('mask', maskFile);
-        formData.append('prompt', 'Transform this into a vibrant cartoon style with bold outlines and bright colors');
-        formData.append('n', '1');
-        formData.append('size', '1024x1024');
-
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${gameState.apiToken}`
-            },
-            body: formData
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            const errorMessage = errorData.error?.message || 'Image edit failed';
-            throw new Error(errorMessage);
-        }
-
-        const data = await response.json();
-        return data.data[0].url;
-
+        return cartoonImageUrl;
     } catch (error) {
         // Re-throw the error with clear message
         throw error;
     }
+}
+
+async function analyzeImageWithVision(imageDataURL) {
+    const apiUrl = 'https://api.openai.com/v1/chat/completions';
+
+    // Ensure the image is in base64 format
+    let base64Image = imageDataURL;
+    if (base64Image.startsWith('data:')) {
+        base64Image = base64Image.split(',')[1];
+    }
+
+    const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${gameState.apiToken}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            model: 'gpt-4o',
+            messages: [
+                {
+                    role: 'user',
+                    content: [
+                        {
+                            type: 'text',
+                            text: 'Describe this image in detail, focusing on the main subject, objects, people, setting, colors, and mood. This description will be used to create a cartoon version of the image. Be specific and descriptive but concise (2-3 sentences).'
+                        },
+                        {
+                            type: 'image_url',
+                            image_url: {
+                                url: `data:image/jpeg;base64,${base64Image}`
+                            }
+                        }
+                    ]
+                }
+            ],
+            max_tokens: 500
+        })
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        const errorMessage = errorData.error?.message || 'Vision API failed';
+        throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content;
+}
+
+async function generateCartoonFromDescription(description) {
+    const apiUrl = 'https://api.openai.com/v1/images/generations';
+
+    // Create a prompt that combines the description with cartoon style instructions
+    const cartoonPrompt = `Create a vibrant cartoon-style illustration of the following: ${description}. Use bold outlines, bright colors, and a fun, animated aesthetic.`;
+
+    const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${gameState.apiToken}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            model: 'dall-e-3',
+            prompt: cartoonPrompt,
+            n: 1,
+            size: '1024x1024',
+            quality: 'standard'
+        })
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        const errorMessage = errorData.error?.message || 'Image generation failed';
+        throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    return data.data[0].url;
 }
 
 // Puzzle Game Logic

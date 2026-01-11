@@ -13,6 +13,17 @@
         <!-- Main Game Container -->
         <div id="gameContainer">
 
+            <!-- OpenAI Token Modal -->
+            <div id="tokenModal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <h2>🔑 OpenAI API Token</h2>
+                    <p>Enter your OpenAI API token to transform images into cartoon style:</p>
+                    <input type="password" id="apiTokenInput" placeholder="sk-...">
+                    <button id="saveTokenBtn">Save Token</button>
+                    <p class="info">Your token is stored locally and never sent anywhere except OpenAI's API.</p>
+                </div>
+            </div>
+
             <!-- Settings Section -->
             <div class="settings-bar">
                 <div class="difficulty-selector">
@@ -24,6 +35,7 @@
                         <option value="5">Expert (5x5)</option>
                     </select>
                 </div>
+                <button id="changeTokenBtn" class="settings-btn" style="display: none;">🔑 Change API Token</button>
             </div>
 
             <!-- Image Upload Section -->
@@ -41,8 +53,22 @@
 
             <!-- Image Preview Section -->
             <div id="previewSection" class="section" style="display: none;">
-                <h2>Step 2: Start Your Puzzle</h2>
+                <h2>Step 2: Transform Your Image</h2>
                 <img id="originalImage" alt="Original Image">
+                <button id="transformBtn" class="btn-primary">🎨 Transform to Cartoon Style</button>
+            </div>
+
+            <!-- Loading Indicator -->
+            <div id="loadingIndicator" class="section loading" style="display: none;">
+                <div class="spinner"></div>
+                <h3>Transforming your image...</h3>
+                <p>This may take 20-30 seconds</p>
+            </div>
+
+            <!-- Cartoon Preview Section -->
+            <div id="cartoonSection" class="section" style="display: none;">
+                <h2>Step 3: Start Your Puzzle</h2>
+                <img id="cartoonImage" alt="Cartoon Image">
                 <button id="startGameBtn" class="btn-primary">🎮 Start Puzzle Game</button>
             </div>
 

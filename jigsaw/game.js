@@ -1,15 +1,22 @@
 // Game State
 let gameState = {
     originalImage: null,
+    cartoonImage: null,
     difficulty: 3,
     pieces: [],
     grid: [],
-    currentStream: null
+    currentStream: null,
+    apiToken: null
 };
 
 // DOM Elements
 const elements = {
     gameContainer: document.getElementById('gameContainer'),
+
+    tokenModal: document.getElementById('tokenModal'),
+    apiTokenInput: document.getElementById('apiTokenInput'),
+    saveTokenBtn: document.getElementById('saveTokenBtn'),
+    changeTokenBtn: document.getElementById('changeTokenBtn'),
 
     uploadSection: document.getElementById('uploadSection'),
     uploadBtn: document.getElementById('uploadBtn'),
@@ -21,6 +28,12 @@ const elements = {
 
     previewSection: document.getElementById('previewSection'),
     originalImage: document.getElementById('originalImage'),
+    transformBtn: document.getElementById('transformBtn'),
+
+    loadingIndicator: document.getElementById('loadingIndicator'),
+
+    cartoonSection: document.getElementById('cartoonSection'),
+    cartoonImage: document.getElementById('cartoonImage'),
     startGameBtn: document.getElementById('startGameBtn'),
 
     puzzleSection: document.getElementById('puzzleSection'),
@@ -42,11 +55,23 @@ const elements = {
 document.addEventListener('DOMContentLoaded', init);
 
 function init() {
+    // Check for saved token
+    const savedToken = localStorage.getItem('openai_token');
+    if (savedToken) {
+        gameState.apiToken = savedToken;
+        elements.changeTokenBtn.style.display = 'block';
+    } else {
+        elements.tokenModal.style.display = 'flex';
+    }
+
     // Event Listeners
+    elements.saveTokenBtn.addEventListener('click', saveToken);
+    elements.changeTokenBtn.addEventListener('click', changeToken);
     elements.uploadBtn.addEventListener('click', () => elements.fileInput.click());
     elements.fileInput.addEventListener('change', handleFileUpload);
     elements.cameraBtn.addEventListener('click', startCamera);
     elements.captureBtn.addEventListener('click', capturePhoto);
+    elements.transformBtn.addEventListener('click', transformImage);
     elements.startGameBtn.addEventListener('click', startPuzzleGame);
     elements.showPreviewBtn.addEventListener('click', showPreview);
     elements.resetBtn.addEventListener('click', resetPuzzle);
@@ -59,6 +84,29 @@ function init() {
     elements.previewModal.addEventListener('click', (e) => {
         if (e.target === elements.previewModal) closePreview();
     });
+}
+
+// Token Management
+function saveToken() {
+    const token = elements.apiTokenInput.value.trim();
+    if (!token) {
+        alert('Please enter a valid API token');
+        return;
+    }
+    if (!token.startsWith('sk-')) {
+        alert('OpenAI API tokens typically start with "sk-". Please verify your token.');
+        return;
+    }
+    localStorage.setItem('openai_token', token);
+    gameState.apiToken = token;
+    elements.tokenModal.style.display = 'none';
+    elements.changeTokenBtn.style.display = 'block';
+    alert('Token saved successfully!');
+}
+
+function changeToken() {
+    elements.apiTokenInput.value = '';
+    elements.tokenModal.style.display = 'flex';
 }
 
 // Image Upload/Capture
@@ -126,13 +174,141 @@ function showImagePreview(imageData) {
     elements.uploadSection.scrollIntoView({ behavior: 'smooth' });
 }
 
+// Image Transformation with OpenAI
+async function transformImage() {
+    if (!gameState.apiToken) {
+        alert('Please set your OpenAI API token first');
+        elements.tokenModal.style.display = 'flex';
+        return;
+    }
+
+    elements.previewSection.style.display = 'none';
+    elements.loadingIndicator.style.display = 'block';
+    elements.loadingIndicator.scrollIntoView({ behavior: 'smooth' });
+
+    try {
+        // Step 1: Analyze image with GPT-4 Vision
+        const description = await analyzeImageWithVision(gameState.originalImage);
+        console.log('Image analysis:', description);
+
+        // Step 2: Generate cartoon with DALL-E 3
+        const cartoonUrl = await generateCartoonFromDescription(description);
+        console.log('Cartoon generated:', cartoonUrl);
+
+        // Convert the URL to base64 for local storage
+        const cartoonBase64 = await urlToBase64(cartoonUrl);
+        gameState.cartoonImage = cartoonBase64;
+
+        // Show the cartoon image
+        elements.cartoonImage.src = cartoonBase64;
+        elements.loadingIndicator.style.display = 'none';
+        elements.cartoonSection.style.display = 'block';
+        elements.cartoonSection.scrollIntoView({ behavior: 'smooth' });
+
+    } catch (error) {
+        console.error('Transformation error:', error);
+        elements.loadingIndicator.style.display = 'none';
+        elements.previewSection.style.display = 'block';
+
+        let errorMessage = 'Failed to transform image: ' + error.message;
+
+        if (error.message.includes('401') || error.message.includes('authentication')) {
+            errorMessage += '\n\nYour API token may be invalid. Please check it and try again.';
+            elements.tokenModal.style.display = 'flex';
+        } else if (error.message.includes('quota') || error.message.includes('429')) {
+            errorMessage += '\n\nYou may have exceeded your API quota. Please check your OpenAI account.';
+        }
+
+        alert(errorMessage);
+    }
+}
+
+async function analyzeImageWithVision(imageData) {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${gameState.apiToken}`
+        },
+        body: JSON.stringify({
+            model: 'gpt-4o',
+            messages: [
+                {
+                    role: 'user',
+                    content: [
+                        {
+                            type: 'text',
+                            text: 'Analyze this image and provide a detailed description for creating a cartoon version. Focus on: main subjects, their characteristics, setting, colors, and mood. Be specific and detailed. Keep it under 300 words.'
+                        },
+                        {
+                            type: 'image_url',
+                            image_url: {
+                                url: imageData
+                            }
+                        }
+                    ]
+                }
+            ],
+            max_tokens: 500
+        })
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(`Vision API error (${response.status}): ${error.error?.message || 'Unknown error'}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content;
+}
+
+async function generateCartoonFromDescription(description) {
+    const cartoonPrompt = `Create a vibrant, colorful cartoon illustration based on this description: ${description}. Style: bright colors, clear outlines, playful and fun cartoon art style, suitable for a jigsaw puzzle game.`;
+
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${gameState.apiToken}`
+        },
+        body: JSON.stringify({
+            model: 'dall-e-3',
+            prompt: cartoonPrompt,
+            n: 1,
+            size: '1024x1024',
+            quality: 'standard'
+        })
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(`DALL-E API error (${response.status}): ${error.error?.message || 'Unknown error'}`);
+    }
+
+    const data = await response.json();
+    return data.data[0].url;
+}
+
+async function urlToBase64(url) {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
+
 // Puzzle Game Logic
 function updateDifficulty() {
     gameState.difficulty = parseInt(elements.difficultySelect.value);
 }
 
 function startPuzzleGame() {
-    if (!gameState.originalImage) return;
+    // Use cartoon image if available, otherwise use original
+    const puzzleImage = gameState.cartoonImage || gameState.originalImage;
+    if (!puzzleImage) return;
 
     elements.puzzleSection.style.display = 'block';
     elements.victoryMessage.style.display = 'none';
@@ -153,13 +329,51 @@ function createPuzzle() {
         }
 
         const size = gameState.difficulty;
-        const pieceWidth = img.width / size;
-        const pieceHeight = img.height / size;
+
+        // Calculate maximum available space for puzzle
+        // Account for viewport, container padding, and pieces pool
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        // Reserve space for padding, header, controls, and pieces pool
+        // On mobile, puzzle is stacked vertically, on desktop horizontally
+        const isMobile = viewportWidth <= 768;
+        const maxPuzzleWidth = isMobile
+            ? Math.min(viewportWidth - 60, 600)  // Full width minus padding
+            : Math.min(viewportWidth * 0.55, 700); // 55% of viewport, max 700px
+        const maxPuzzleHeight = isMobile
+            ? Math.min(viewportHeight * 0.45, 500) // 45% of viewport for mobile
+            : Math.min(viewportHeight * 0.65, 600); // 65% of viewport for desktop
+
+        // Calculate scaled dimensions while maintaining aspect ratio
+        const imgAspectRatio = img.width / img.height;
+        let puzzleWidth, puzzleHeight;
+
+        if (imgAspectRatio > maxPuzzleWidth / maxPuzzleHeight) {
+            // Width is the limiting factor
+            puzzleWidth = maxPuzzleWidth;
+            puzzleHeight = maxPuzzleWidth / imgAspectRatio;
+        } else {
+            // Height is the limiting factor
+            puzzleHeight = maxPuzzleHeight;
+            puzzleWidth = maxPuzzleHeight * imgAspectRatio;
+        }
+
+        // Calculate piece dimensions based on scaled puzzle size
+        const pieceWidth = Math.floor(puzzleWidth / size);
+        const pieceHeight = Math.floor(puzzleHeight / size);
+
+        // Adjust puzzle dimensions to exact grid size
+        const actualPuzzleWidth = pieceWidth * size;
+        const actualPuzzleHeight = pieceHeight * size;
 
         console.log('Creating puzzle:', {
-            imageSize: `${img.width}x${img.height}`,
+            originalImageSize: `${img.width}x${img.height}`,
+            maxAvailableSpace: `${maxPuzzleWidth}x${maxPuzzleHeight}`,
+            scaledPuzzleSize: `${actualPuzzleWidth}x${actualPuzzleHeight}`,
             gridSize: `${size}x${size}`,
-            pieceSize: `${pieceWidth}x${pieceHeight}`
+            pieceSize: `${pieceWidth}x${pieceHeight}`,
+            isMobile: isMobile
         });
 
         // Clear previous puzzle
@@ -168,7 +382,7 @@ function createPuzzle() {
         gameState.pieces = [];
         gameState.grid = [];
 
-        // Set grid layout
+        // Set grid layout with responsive dimensions
         elements.puzzleGrid.style.gridTemplateColumns = `repeat(${size}, ${pieceWidth}px)`;
         elements.puzzleGrid.style.gridTemplateRows = `repeat(${size}, ${pieceHeight}px)`;
 
@@ -179,7 +393,7 @@ function createPuzzle() {
                 const pieceId = row * size + col;
 
                 // Create piece element
-                const piece = createPieceElement(img, col, row, pieceWidth, pieceHeight, pieceId);
+                const piece = createPieceElement(img, col, row, pieceWidth, pieceHeight, pieceId, size);
                 pieces.push({ element: piece, correctRow: row, correctCol: col, id: pieceId });
 
                 // Create slot in grid
@@ -206,19 +420,28 @@ function createPuzzle() {
         alert('Error: Failed to load image. Please try uploading a different image.');
     };
 
-    img.src = gameState.originalImage;
+    // Use cartoon image if available, otherwise use original
+    img.src = gameState.cartoonImage || gameState.originalImage;
 }
 
-function createPieceElement(img, col, row, width, height, id) {
+function createPieceElement(img, col, row, width, height, id, gridSize) {
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
 
     const ctx = canvas.getContext('2d');
+
+    // Calculate source dimensions from original image
+    const sourceWidth = img.width / gridSize;
+    const sourceHeight = img.height / gridSize;
+    const sourceX = col * sourceWidth;
+    const sourceY = row * sourceHeight;
+
+    // Draw scaled portion of image to canvas
     ctx.drawImage(
         img,
-        col * width, row * height, width, height,
-        0, 0, width, height
+        sourceX, sourceY, sourceWidth, sourceHeight,  // Source rectangle from original image
+        0, 0, width, height  // Destination rectangle on canvas (scaled)
     );
 
     const piece = document.createElement('div');
@@ -352,7 +575,8 @@ function showVictory() {
 
 // Game Controls
 function showPreview() {
-    elements.previewImage.src = gameState.originalImage;
+    // Show cartoon image if available, otherwise show original
+    elements.previewImage.src = gameState.cartoonImage || gameState.originalImage;
     elements.previewModal.style.display = 'flex';
 }
 
@@ -384,12 +608,16 @@ function resetPuzzle() {
 function newGame() {
     // Reset all sections
     elements.previewSection.style.display = 'none';
+    elements.cartoonSection.style.display = 'none';
+    elements.loadingIndicator.style.display = 'none';
     elements.puzzleSection.style.display = 'none';
     elements.victoryMessage.style.display = 'none';
 
     // Clear images
     gameState.originalImage = null;
+    gameState.cartoonImage = null;
     elements.originalImage.src = '';
+    elements.cartoonImage.src = '';
     elements.fileInput.value = '';
 
     // Stop camera if running
